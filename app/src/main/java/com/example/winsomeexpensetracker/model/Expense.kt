@@ -1,7 +1,7 @@
 package com.example.winsomeexpensetracker.model
 
 data class Expense(
-    val id: Int,
+    val documentId: String = "",
     val title: String,
     val amount: Double,
     val category: Category,

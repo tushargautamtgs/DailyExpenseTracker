@@ -1,25 +1,135 @@
+//package com.example.winsomeexpensetracker.viewmodel
+//
+//import androidx.compose.runtime.mutableStateListOf
+//import androidx.lifecycle.ViewModel
+//import com.example.winsomeexpensetracker.model.Category
+//import com.example.winsomeexpensetracker.model.Expense
+//
+//class ExpenseViewModel : ViewModel() {
+//
+//    val expenses = mutableStateListOf<Expense>()
+//
+//    fun addExpense(expense: Expense) {
+//        expenses.add(expense)
+//    }
+//
+//    fun removeExpense(expense: Expense) {
+//        expenses.remove(expense)
+//    }
+//
+//    fun totalByCategory(category: Category): Double{
+//        return expenses
+//            .filter { it.category == category }
+//            .sumOf { it.amount }
+//    }
+//
+//    fun addNewExpense(title: String, amount: Double, category: Category) {
+//        val newExpense = Expense(
+//            id = expenses.size + 1, // Or let your Room Database auto-generate this!
+//            title = title,
+//            amount = amount,
+//            category = category,
+//            date = System.currentTimeMillis()
+//        )
+//        addExpense(newExpense)
+//    }
+//}
 package com.example.winsomeexpensetracker.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import com.example.winsomeexpensetracker.model.Category
 import com.example.winsomeexpensetracker.model.Expense
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query // <--- THIS IS THE MISSING IMPORT!
 
 class ExpenseViewModel : ViewModel() {
 
+    // The UI will still read from this list, but now it's powered by Firebase!
     val expenses = mutableStateListOf<Expense>()
 
-    fun addExpense(expense: Expense) {
-        expenses.add(expense)
+    private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
+
+    init {
+        // As soon as the ViewModel starts, pull the user's data from the cloud
+        fetchExpenses()
     }
 
+    private fun fetchExpenses() {
+        val userId = auth.currentUser?.uid ?: return
+
+        // Listen for real-time updates from this specific user's Firestore collection
+        db.collection("users").document(userId).collection("expenses")
+            .orderBy("date", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("Firestore", "Listen failed.", error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    expenses.clear()
+                    for (doc in snapshot.documents) {
+                        // Map the Firestore document back into your Expense data class
+                        val expense = Expense(
+                            documentId = doc.id, // Generate a local ID
+                            title = doc.getString("title") ?: "",
+                            amount = doc.getDouble("amount") ?: 0.0,
+                            category = Category.valueOf(doc.getString("category") ?: "FOOD"),
+                            date = doc.getLong("date") ?: 0L
+                        )
+                        expenses.add(expense)
+                    }
+                }
+            }
+    }
+
+    fun addNewExpense(title: String, amount: Double, category: Category) {
+        val userId = auth.currentUser?.uid ?: return
+
+        // Create a hashmap representing the data we want to save
+        val expenseData = hashMapOf(
+            "title" to title,
+            "amount" to amount,
+            "category" to category.name,
+            "date" to System.currentTimeMillis()
+        )
+
+        // Push it to Cloud Firestore under the logged-in user's UID
+        db.collection("users").document(userId).collection("expenses")
+            .add(expenseData)
+            .addOnSuccessListener {
+                Log.d("Firestore", "Expense successfully added!")
+            }
+            .addOnFailureListener { e ->
+                Log.w("Firestore", "Error adding expense", e)
+            }
+    }
+
+    // Add this function to your ViewModel:
     fun removeExpense(expense: Expense) {
-        expenses.remove(expense)
+        val userId = auth.currentUser?.uid ?: return
+
+        // Use the documentId we saved to delete the exact document
+        db.collection("users").document(userId).collection("expenses")
+            .document(expense.documentId)
+            .delete()
+            .addOnSuccessListener {
+                Log.d("Firestore", "Document successfully deleted!")
+            }
+            .addOnFailureListener { e ->
+                Log.w("Firestore", "Error deleting document", e)
+            }
     }
 
-    fun totalByCategory(category: Category): Double{
+    fun totalByCategory(category: Category): Double {
         return expenses
             .filter { it.category == category }
             .sumOf { it.amount }
     }
+
+
 }

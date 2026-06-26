@@ -3,40 +3,29 @@ package com.example.winsomeexpensetracker
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.*
-import com.example.winsomeexpensetracker.uis.ExpenseListScreen
-import com.example.winsomeexpensetracker.uis.HomeScreen
+import androidx.activity.viewModels
+import com.example.winsomeexpensetracker.navigation.AppNavigation
+import com.example.winsomeexpensetracker.ui.theme.WinsomeExpenseTrackerTheme
+import com.example.winsomeexpensetracker.viewmodel.AuthViewModel
 import com.example.winsomeexpensetracker.viewmodel.ExpenseViewModel
-import kotlin.math.exp
 
 class MainActivity : ComponentActivity() {
 
+    // Initialize ViewModels using the activity delegate
+    private val authViewModel: AuthViewModel by viewModels()
+    private val expenseViewModel: ExpenseViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContent {
+            // Apply your theme wrapper
+            WinsomeExpenseTrackerTheme {
 
-
-            val expenseViewModel: ExpenseViewModel = viewModel()
-
-            val navController = rememberNavController()
-
-            NavHost(
-                navController = navController,
-                startDestination = "home"
-            ) {
-
-                composable("home") {
-                    HomeScreen(navController = navController,
-                        expenseViewModel = expenseViewModel)
-                }
-
-                composable("expenses") {
-                    ExpenseListScreen(
-                        expenseViewModel = expenseViewModel
-                    )
-                }
+                // Use the centralized navigation component
+                AppNavigation(
+                    expenseViewModel = expenseViewModel,
+                    authViewModel = authViewModel
+                )
             }
         }
     }

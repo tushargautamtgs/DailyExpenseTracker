@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "407797236583",
+    "project_id": "winsomeexpensetracker",
+    "storage_bucket": "winsomeexpensetracker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:407797236583:android:51cb712aa0eae3bdd3e5c2",
+        "android_client_info": {
+          "package_name": "com.example.winsomeexpensetracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXg-pT444h33o10hCDD-xRZWtu5SopGNo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
