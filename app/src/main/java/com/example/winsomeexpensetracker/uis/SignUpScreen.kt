@@ -51,7 +51,8 @@ fun SignUpScreen(
             is AuthState.Success -> {
                 Toast.makeText(context, "Account Created! Please verify your email.", Toast.LENGTH_LONG).show()
                 navController.navigate("home") {
-                    popUpTo("signup") { inclusive = true }
+                    popUpTo("signup") { inclusive = true } // Clear sign-up from history
+                    launchSingleTop = true
                 }
                 authViewModel.clearState()
             }

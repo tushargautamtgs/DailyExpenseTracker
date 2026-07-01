@@ -90,6 +90,7 @@ class ExpenseViewModel : ViewModel() {
     fun addNewExpense(title: String, amount: Double, category: Category) {
         val userId = auth.currentUser?.uid ?: return
 
+
         // Create a hashmap representing the data we want to save
         val expenseData = hashMapOf(
             "title" to title,
@@ -97,12 +98,13 @@ class ExpenseViewModel : ViewModel() {
             "category" to category.name,
             "date" to System.currentTimeMillis()
         )
-
         // Push it to Cloud Firestore under the logged-in user's UID
         db.collection("users").document(userId).collection("expenses")
             .add(expenseData)
             .addOnSuccessListener {
                 Log.d("Firestore", "Expense successfully added!")
+
+                fetchExpenses()
             }
             .addOnFailureListener { e ->
                 Log.w("Firestore", "Error adding expense", e)
@@ -129,6 +131,10 @@ class ExpenseViewModel : ViewModel() {
         return expenses
             .filter { it.category == category }
             .sumOf { it.amount }
+    }
+
+    fun clearData(){
+        expenses.clear()
     }
 
 

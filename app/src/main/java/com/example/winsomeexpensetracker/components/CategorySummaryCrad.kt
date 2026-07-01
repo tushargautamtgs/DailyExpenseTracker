@@ -26,7 +26,7 @@ fun CategorySummaryCard(
         ) {
 
             Text(
-                text = "Category Summary",
+                text = "Category_Summary",
                 style = MaterialTheme.typography.titleMedium
             )
 

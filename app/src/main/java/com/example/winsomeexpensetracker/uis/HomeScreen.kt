@@ -46,17 +46,30 @@ fun HomeScreen(
     expenseViewModel: ExpenseViewModel,
     authViewModel: AuthViewModel // <--- 1. ADD THIS PARAMETER
 ) {
+
+    val expenses = expenseViewModel.expenses
+
     var title by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(Category.TRAVEL) }
 
     val categories = Category.entries
 
-    val foodExpense = expenseViewModel.totalByCategory(Category.FOOD)
-    val travelExpense = expenseViewModel.totalByCategory(Category.TRAVEL)
-    val shoppingExpense = expenseViewModel.totalByCategory(Category.SHOPPING)
-    val entertainmentExpense = expenseViewModel.totalByCategory(Category.ENTERTAINMENT)
+    val foodExpense = expenses
+        .filter { it.category == Category.FOOD }
+        .sumOf { it.amount }
 
+    val travelExpense = expenses
+        .filter { it.category == Category.TRAVEL }
+        .sumOf { it.amount }
+
+    val shoppingExpense = expenses
+        .filter { it.category == Category.SHOPPING }
+        .sumOf { it.amount }
+
+    val entertainmentExpense = expenses
+        .filter { it.category == Category.ENTERTAINMENT }
+        .sumOf { it.amount }
     // 2. USE A SINGLE COLUMN TO PREVENT LAYOUT ISSUES
     Column(
         modifier = Modifier

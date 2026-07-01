@@ -48,7 +48,9 @@ fun LoginScreen(
             is AuthState.Success -> {
                 Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
                 navController.navigate("home") {
+                    // This removes everything before "home" from the stack
                     popUpTo("login") { inclusive = true }
+                    launchSingleTop = true
                 }
                 authViewModel.clearState() // Reset state after navigation
             }
