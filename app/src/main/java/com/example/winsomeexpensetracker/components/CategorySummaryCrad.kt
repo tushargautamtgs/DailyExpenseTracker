@@ -39,9 +39,7 @@ fun CategorySummaryCard(
             CategoryRow("🎬 Entertainment", entertainment, monthlyBudget)
 
         }
-
     }
-
 }
 
 @Composable
@@ -70,4 +68,6 @@ private fun CategoryRow(
 
         Spacer(modifier = Modifier.height(6.dp))
     }
+
+
 }

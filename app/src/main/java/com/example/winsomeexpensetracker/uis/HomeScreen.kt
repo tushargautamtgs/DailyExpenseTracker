@@ -1,5 +1,7 @@
 package com.example.winsomeexpensetracker.uis
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.winsomeexpensetracker.model.Category
+import com.example.winsomeexpensetracker.ui.components.SpendingTimelineCard
 import com.example.winsomeexpensetracker.ui.theme.PremiumDanger
 import com.example.winsomeexpensetracker.viewmodel.AuthViewModel
 import com.example.winsomeexpensetracker.viewmodel.ExpenseViewModel
@@ -35,10 +38,11 @@ import com.example.winsomeexpensetracker.viewmodel.ExpenseViewModel
 val PremiumBackground = Color(0xFF131F2A)
 val PremiumCard = Color(0xFF202B38)
 val PremiumCyanAccent = Color(0xFF62D0C5)
-val PremiumTextPrimary = Color.White
+val PremiumTextPrimary = Color  .White
 val PremiumTextSecondary = Color(0xFF8E9BA8)
 val PremiumDivider = Color(0xFF384554)
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -46,6 +50,8 @@ fun HomeScreen(
     expenseViewModel: ExpenseViewModel,
     authViewModel: AuthViewModel // <--- 1. ADD THIS PARAMETER
 ) {
+
+
 
     val expenses = expenseViewModel.expenses
 
@@ -273,8 +279,13 @@ fun HomeScreen(
                     fontSize = 16.sp
                 )
             }
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(32.dp))
+            SpendingTimelineCard(
+                expenses = expenseViewModel.expenses
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             // --- Category Summary ---
             Text(
@@ -284,7 +295,7 @@ fun HomeScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
