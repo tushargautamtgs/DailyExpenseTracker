@@ -1,39 +1,3 @@
-//package com.example.winsomeexpensetracker.viewmodel
-//
-//import androidx.compose.runtime.mutableStateListOf
-//import androidx.lifecycle.ViewModel
-//import com.example.winsomeexpensetracker.model.Category
-//import com.example.winsomeexpensetracker.model.Expense
-//
-//class ExpenseViewModel : ViewModel() {
-//
-//    val expenses = mutableStateListOf<Expense>()
-//
-//    fun addExpense(expense: Expense) {
-//        expenses.add(expense)
-//    }
-//
-//    fun removeExpense(expense: Expense) {
-//        expenses.remove(expense)
-//    }
-//
-//    fun totalByCategory(category: Category): Double{
-//        return expenses
-//            .filter { it.category == category }
-//            .sumOf { it.amount }
-//    }
-//
-//    fun addNewExpense(title: String, amount: Double, category: Category) {
-//        val newExpense = Expense(
-//            id = expenses.size + 1, // Or let your Room Database auto-generate this!
-//            title = title,
-//            amount = amount,
-//            category = category,
-//            date = System.currentTimeMillis()
-//        )
-//        addExpense(newExpense)
-//    }
-//}
 package com.example.winsomeexpensetracker.viewmodel
 
 import android.util.Log
@@ -87,16 +51,23 @@ class ExpenseViewModel : ViewModel() {
             }
     }
 
-    fun addNewExpense(title: String, amount: Double, category: Category) {
+    // `date` defaults to "now" so every existing call site (Add Expense button, etc.)
+    // keeps working unchanged. Pass an explicit epoch-millis value to log an expense
+    // against a past (or future) date, e.g. from the calendar day popup.
+    fun addNewExpense(
+        title: String,
+        amount: Double,
+        category: Category,
+        date: Long = System.currentTimeMillis()
+    ) {
         val userId = auth.currentUser?.uid ?: return
-
 
         // Create a hashmap representing the data we want to save
         val expenseData = hashMapOf(
             "title" to title,
             "amount" to amount,
             "category" to category.name,
-            "date" to System.currentTimeMillis()
+            "date" to date
         )
         // Push it to Cloud Firestore under the logged-in user's UID
         db.collection("users").document(userId).collection("expenses")
@@ -136,6 +107,5 @@ class ExpenseViewModel : ViewModel() {
     fun clearData(){
         expenses.clear()
     }
-
 
 }

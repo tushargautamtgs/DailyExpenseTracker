@@ -1,7 +1,5 @@
 package com.example.winsomeexpensetracker.uis
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,21 +26,28 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.winsomeexpensetracker.components.BudgetSummaryCard
+import com.example.winsomeexpensetracker.components.SpendingCalendarCard
+import com.example.winsomeexpensetracker.components.SpendingInsightCard
 import com.example.winsomeexpensetracker.model.Category
-import com.example.winsomeexpensetracker.ui.components.SpendingTimelineCard
 import com.example.winsomeexpensetracker.ui.theme.PremiumDanger
 import com.example.winsomeexpensetracker.viewmodel.AuthViewModel
 import com.example.winsomeexpensetracker.viewmodel.ExpenseViewModel
+import java.time.YearMonth
 
 // --- Premium Dark Teal Theme Colors ---
 val PremiumBackground = Color(0xFF131F2A)
 val PremiumCard = Color(0xFF202B38)
 val PremiumCyanAccent = Color(0xFF62D0C5)
-val PremiumTextPrimary = Color  .White
+val PremiumTextPrimary = Color.White
 val PremiumTextSecondary = Color(0xFF8E9BA8)
 val PremiumDivider = Color(0xFF384554)
 
-@RequiresApi(Build.VERSION_CODES.O)
+// Key used to persist the user's monthly budget across app restarts.
+private const val BUDGET_PREFS_NAME = "winsome_budget_prefs"
+private const val BUDGET_PREFS_KEY = "monthly_budget"
+private const val DEFAULT_MONTHLY_BUDGET = 30000.0
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -51,13 +56,24 @@ fun HomeScreen(
     authViewModel: AuthViewModel // <--- 1. ADD THIS PARAMETER
 ) {
 
-
-
     val expenses = expenseViewModel.expenses
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val budgetPrefs = remember {
+        context.getSharedPreferences(BUDGET_PREFS_NAME, android.content.Context.MODE_PRIVATE)
+    }
+
+    var monthlyBudget by remember {
+        mutableStateOf(
+            budgetPrefs.getFloat(BUDGET_PREFS_KEY, DEFAULT_MONTHLY_BUDGET.toFloat()).toDouble()
+        )
+    }
+    var showBudgetDialog by remember { mutableStateOf(false) }
+    var budgetInput by remember { mutableStateOf(monthlyBudget.toInt().toString()) }
 
     var title by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(Category.TRAVEL) }
+    var calendarMonth by remember { mutableStateOf(YearMonth.now()) }
 
     val categories = Category.entries
 
@@ -76,6 +92,59 @@ fun HomeScreen(
     val entertainmentExpense = expenses
         .filter { it.category == Category.ENTERTAINMENT }
         .sumOf { it.amount }
+
+    // Monthly spend for the summary card. Expense.date is a Long (epoch millis).
+    val monthlySpent = expenses
+        .filter {
+            val date = java.time.Instant.ofEpochMilli(it.date)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate()
+            YearMonth.from(date) == YearMonth.now()
+        }
+        .sumOf { it.amount }
+
+    if (showBudgetDialog) {
+        AlertDialog(
+            onDismissRequest = { showBudgetDialog = false },
+            containerColor = PremiumCard,
+            title = { Text("Set monthly budget", color = PremiumTextPrimary) },
+            text = {
+                TextField(
+                    value = budgetInput,
+                    onValueChange = { input -> budgetInput = input.filter { it.isDigit() } },
+                    label = { Text("Budget (₹)", color = PremiumTextSecondary) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedTextColor = PremiumTextPrimary,
+                        unfocusedTextColor = PremiumTextPrimary,
+                        focusedIndicatorColor = PremiumDivider,
+                        unfocusedIndicatorColor = PremiumDivider,
+                        cursorColor = PremiumCyanAccent
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val parsed = budgetInput.toDoubleOrNull()
+                    if (parsed != null && parsed > 0) {
+                        monthlyBudget = parsed
+                        budgetPrefs.edit().putFloat(BUDGET_PREFS_KEY, parsed.toFloat()).apply()
+                    }
+                    showBudgetDialog = false
+                }) {
+                    Text("Save", color = PremiumCyanAccent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBudgetDialog = false }) {
+                    Text("Cancel", color = PremiumTextSecondary)
+                }
+            }
+        )
+    }
+
     // 2. USE A SINGLE COLUMN TO PREVENT LAYOUT ISSUES
     Column(
         modifier = Modifier
@@ -83,7 +152,6 @@ fun HomeScreen(
             .background(PremiumBackground)
             .padding(top = 48.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
-        // --- Clean Top Header ---
         // --- Clean Top Header ---
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -119,6 +187,11 @@ fun HomeScreen(
 
             // Logout Button
             IconButton(onClick = {
+                // Clear local device data only — Firebase cloud data stays untouched
+                // and will be re-fetched on next login.
+                expenseViewModel.clearData()
+                budgetPrefs.edit().clear().apply()
+
                 authViewModel.logout()
                 navController.navigate("login") {
                     popUpTo(0) { inclusive = true }
@@ -138,6 +211,50 @@ fun HomeScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
+            // --- Dashboard: budget summary, calendar, insight ---
+            BudgetSummaryCard(
+                budget = monthlyBudget,
+                spent = monthlySpent,
+                onEditClick = {
+                    budgetInput = monthlyBudget.toInt().toString()
+                    showBudgetDialog = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SpendingCalendarCard(
+                expenses = expenses,
+                monthlyBudget = monthlyBudget,
+                categories = categories,
+                onAddExpense = { date, expTitle, expAmount, expCategory ->
+                    val dateMillis = date.atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli()
+                    expenseViewModel.addNewExpense(
+                        title = expTitle,
+                        amount = expAmount,
+                        category = expCategory,
+                        date = dateMillis
+                    )
+                },
+                currentMonth = calendarMonth,
+                onPrevMonth = { calendarMonth = calendarMonth.minusMonths(1) },
+                onNextMonth = { calendarMonth = calendarMonth.plusMonths(1) },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SpendingInsightCard(
+                expenses = expenses,
+                monthlyBudget = monthlyBudget,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // --- Input Form Card ---
             Box(
                 modifier = Modifier
@@ -279,13 +396,8 @@ fun HomeScreen(
                     fontSize = 16.sp
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
-            SpendingTimelineCard(
-                expenses = expenseViewModel.expenses
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             // --- Category Summary ---
             Text(
@@ -295,7 +407,7 @@ fun HomeScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
