@@ -25,14 +25,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.winsomeexpensetracker.components.BudgetSummaryCard
+import com.example.winsomeexpensetracker.components.ExpandableSection
+import com.example.winsomeexpensetracker.components.SideMenu
 import com.example.winsomeexpensetracker.components.SpendingCalendarCard
 import com.example.winsomeexpensetracker.components.SpendingInsightCard
 import com.example.winsomeexpensetracker.model.Category
 import com.example.winsomeexpensetracker.ui.theme.PremiumDanger
 import com.example.winsomeexpensetracker.viewmodel.AuthViewModel
 import com.example.winsomeexpensetracker.viewmodel.ExpenseViewModel
+import com.example.winsomeexpensetracker.viewmodel.ProfileViewModel
 import java.time.YearMonth
 
 // --- Premium Dark Teal Theme Colors ---
@@ -57,6 +61,8 @@ fun HomeScreen(
 ) {
 
     val expenses = expenseViewModel.expenses
+    val profileViewModel: ProfileViewModel = viewModel()
+    var showSideMenu by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val budgetPrefs = remember {
         context.getSharedPreferences(BUDGET_PREFS_NAME, android.content.Context.MODE_PRIVATE)
@@ -145,6 +151,8 @@ fun HomeScreen(
         )
     }
 
+    // Box wraps the screen so the side menu can overlay on top of everything.
+    Box(modifier = Modifier.fillMaxSize()) {
     // 2. USE A SINGLE COLUMN TO PREVENT LAYOUT ISSUES
     Column(
         modifier = Modifier
@@ -157,13 +165,14 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 24.dp)
         ) {
-            // --- Logo Badge ---
+            // --- Logo Badge (tap to open side menu) ---
             Box(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(PremiumCyanAccent.copy(alpha = 0.15f))
-                    .border(1.dp, PremiumCyanAccent.copy(alpha = 0.5f), CircleShape),
+                    .border(1.dp, PremiumCyanAccent.copy(alpha = 0.5f), CircleShape)
+                    .clickable { showSideMenu = true },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -178,7 +187,7 @@ fun HomeScreen(
 
             // --- Welcome Text ---
             Text(
-                text = "Welcome Buddy!!!",
+                text = "Welcome ${profileViewModel.profile.name.ifBlank { "Buddy" }}!!!",
                 color = PremiumTextPrimary,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
@@ -190,6 +199,7 @@ fun HomeScreen(
                 // Clear local device data only — Firebase cloud data stays untouched
                 // and will be re-fetched on next login.
                 expenseViewModel.clearData()
+                profileViewModel.clearData()
                 budgetPrefs.edit().clear().apply()
 
                 authViewModel.logout()
@@ -211,51 +221,7 @@ fun HomeScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            // --- Dashboard: budget summary, calendar, insight ---
-            BudgetSummaryCard(
-                budget = monthlyBudget,
-                spent = monthlySpent,
-                onEditClick = {
-                    budgetInput = monthlyBudget.toInt().toString()
-                    showBudgetDialog = true
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SpendingCalendarCard(
-                expenses = expenses,
-                monthlyBudget = monthlyBudget,
-                categories = categories,
-                onAddExpense = { date, expTitle, expAmount, expCategory ->
-                    val dateMillis = date.atStartOfDay(java.time.ZoneId.systemDefault())
-                        .toInstant()
-                        .toEpochMilli()
-                    expenseViewModel.addNewExpense(
-                        title = expTitle,
-                        amount = expAmount,
-                        category = expCategory,
-                        date = dateMillis
-                    )
-                },
-                currentMonth = calendarMonth,
-                onPrevMonth = { calendarMonth = calendarMonth.minusMonths(1) },
-                onNextMonth = { calendarMonth = calendarMonth.plusMonths(1) },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SpendingInsightCard(
-                expenses = expenses,
-                monthlyBudget = monthlyBudget,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // --- Input Form Card ---
+            // --- Add Expense (always visible, at the top) ---
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -265,6 +231,15 @@ fun HomeScreen(
                     .padding(16.dp)
             ) {
                 Column {
+                    Text(
+                        text = "Add Expense",
+                        color = PremiumTextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     TextField(
                         value = title,
                         onValueChange = { title = it },
@@ -305,62 +280,90 @@ fun HomeScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Category Selection ---
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Category",
-                    color = PremiumTextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = PremiumTextSecondary)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(categories) { category ->
-                    val isSelected = selectedCategory == category
-                    val borderColor = if (isSelected) PremiumCyanAccent else Color.Transparent
-                    val bgColor = if (isSelected) PremiumCyanAccent.copy(alpha = 0.1f) else PremiumCard
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(bgColor)
-                            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-                            .clickable { selectedCategory = category }
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        val icon = when(category) {
-                            Category.FOOD -> Icons.Default.ShoppingCart
-                            Category.TRAVEL -> Icons.Default.Send
-                            Category.SHOPPING -> Icons.Default.ShoppingCart
-                            else -> Icons.Default.List
-                        }
-
-                        val iconTint = if (isSelected) PremiumCyanAccent else PremiumTextSecondary
-
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = category.name,
-                            tint = iconTint,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = category.name.lowercase().replaceFirstChar { it.uppercase() },
-                            color = if (isSelected) PremiumTextPrimary else PremiumTextSecondary,
-                            fontSize = 12.sp
+                            text = "Category",
+                            color = PremiumTextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(categories) { category ->
+                            val isSelected = selectedCategory == category
+                            val borderColor = if (isSelected) PremiumCyanAccent else Color.Transparent
+                            val bgColor = if (isSelected) PremiumCyanAccent.copy(alpha = 0.1f) else PremiumBackground
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(bgColor)
+                                    .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                                    .clickable { selectedCategory = category }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                val icon = when (category) {
+                                    Category.FOOD -> Icons.Default.ShoppingCart
+                                    Category.TRAVEL -> Icons.Default.Send
+                                    Category.SHOPPING -> Icons.Default.ShoppingCart
+                                    else -> Icons.Default.List
+                                }
+
+                                val iconTint = if (isSelected) PremiumCyanAccent else PremiumTextSecondary
+
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = category.name,
+                                    tint = iconTint,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = category.name.lowercase().replaceFirstChar { it.uppercase() },
+                                    color = if (isSelected) PremiumTextPrimary else PremiumTextSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            if (title.isNotBlank() && amount.isNotBlank()) {
+                                expenseViewModel.addNewExpense(
+                                    title = title,
+                                    amount = amount.toDoubleOrNull() ?: 0.0,
+                                    category = selectedCategory
+                                )
+                                title = ""
+                                amount = ""
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PremiumCyanAccent,
+                            contentColor = PremiumBackground
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Add Expense",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
                         )
                     }
                 }
@@ -368,48 +371,54 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- THE TRIGGER BUTTON ---
-            Button(
-                onClick = {
-                    if (title.isNotBlank() && amount.isNotBlank()) {
-                        expenseViewModel.addNewExpense(
-                            title = title,
-                            amount = amount.toDoubleOrNull() ?: 0.0,
-                            category = selectedCategory
-                        )
-                        title = ""
-                        amount = ""
-                    }
+            // --- Dashboard: budget summary, calendar, insight ---
+            BudgetSummaryCard(
+                budget = monthlyBudget,
+                spent = monthlySpent,
+                onEditClick = {
+                    budgetInput = monthlyBudget.toInt().toString()
+                    showBudgetDialog = true
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PremiumCyanAccent,
-                    contentColor = PremiumBackground
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "Add Expense",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // --- Category Summary ---
-            Text(
-                text = "Category Summary",
-                color = PremiumTextPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ExpandableSection(title = "Spending Calendar", modifier = Modifier.fillMaxWidth()) {
+                SpendingCalendarCard(
+                    expenses = expenses,
+                    monthlyBudget = monthlyBudget,
+                    categories = categories,
+                    onAddExpense = { date, expTitle, expAmount, expCategory ->
+                        val dateMillis = date.atStartOfDay(java.time.ZoneId.systemDefault())
+                            .toInstant()
+                            .toEpochMilli()
+                        expenseViewModel.addNewExpense(
+                            title = expTitle,
+                            amount = expAmount,
+                            category = expCategory,
+                            date = dateMillis
+                        )
+                    },
+                    currentMonth = calendarMonth,
+                    onPrevMonth = { calendarMonth = calendarMonth.minusMonths(1) },
+                    onNextMonth = { calendarMonth = calendarMonth.plusMonths(1) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SpendingInsightCard(
+                expenses = expenses,
+                monthlyBudget = monthlyBudget,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- Category Summary (collapsible) ---
+            ExpandableSection(title = "Category Summary", modifier = Modifier.fillMaxWidth()) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -429,6 +438,7 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -487,7 +497,18 @@ fun HomeScreen(
                 color = PremiumCyanAccent
             )
         }
-    }
+    } // end inner Column
+
+    // --- Slide-in side menu (Profile / Help Center / Report Bug) ---
+    SideMenu(
+        visible = showSideMenu,
+        userName = profileViewModel.profile.name,
+        onDismiss = { showSideMenu = false },
+        onProfileClick = { navController.navigate("profile") },
+        onHelpCenterClick = { navController.navigate("help_center") },
+        onReportBugClick = { navController.navigate("report_bug") }
+    )
+    } // end outer Box
 }
 
 // Custom Composable for the grid items seen in the image

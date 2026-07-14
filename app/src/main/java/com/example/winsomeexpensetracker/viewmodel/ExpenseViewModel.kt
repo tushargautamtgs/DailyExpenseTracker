@@ -7,25 +7,21 @@ import com.example.winsomeexpensetracker.model.Category
 import com.example.winsomeexpensetracker.model.Expense
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query // <--- THIS IS THE MISSING IMPORT!
+import com.google.firebase.firestore.Query
 
 class ExpenseViewModel : ViewModel() {
 
-    // The UI will still read from this list, but now it's powered by Firebase!
     val expenses = mutableStateListOf<Expense>()
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
     init {
-        // As soon as the ViewModel starts, pull the user's data from the cloud
         fetchExpenses()
     }
-
     private fun fetchExpenses() {
         val userId = auth.currentUser?.uid ?: return
 
-        // Listen for real-time updates from this specific user's Firestore collection
         db.collection("users").document(userId).collection("expenses")
             .orderBy("date", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
@@ -51,9 +47,6 @@ class ExpenseViewModel : ViewModel() {
             }
     }
 
-    // `date` defaults to "now" so every existing call site (Add Expense button, etc.)
-    // keeps working unchanged. Pass an explicit epoch-millis value to log an expense
-    // against a past (or future) date, e.g. from the calendar day popup.
     fun addNewExpense(
         title: String,
         amount: Double,
@@ -62,14 +55,12 @@ class ExpenseViewModel : ViewModel() {
     ) {
         val userId = auth.currentUser?.uid ?: return
 
-        // Create a hashmap representing the data we want to save
         val expenseData = hashMapOf(
             "title" to title,
             "amount" to amount,
             "category" to category.name,
             "date" to date
         )
-        // Push it to Cloud Firestore under the logged-in user's UID
         db.collection("users").document(userId).collection("expenses")
             .add(expenseData)
             .addOnSuccessListener {
@@ -82,7 +73,6 @@ class ExpenseViewModel : ViewModel() {
             }
     }
 
-    // Add this function to your ViewModel:
     fun removeExpense(expense: Expense) {
         val userId = auth.currentUser?.uid ?: return
 

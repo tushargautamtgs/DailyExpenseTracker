@@ -111,6 +111,34 @@ fun SpendingCalendarCard(
                 }
             }
 
+            // --- Summary for the currently viewed month ---
+            val monthTotal = dailyTotals.values.sum()
+            val daysLogged = dailyTotals.count { it.value > 0 }
+            val monthUsedPercent = if (monthlyBudget > 0) ((monthTotal / monthlyBudget) * 100).toInt() else 0
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Spent this month: ₹${monthTotal.toInt()}",
+                    color = PremiumTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "$daysLogged day${if (daysLogged == 1) "" else "s"} logged · $monthUsedPercent% of budget",
+                    color = PremiumTextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Divider(color = PremiumDivider)
+
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth()) {
